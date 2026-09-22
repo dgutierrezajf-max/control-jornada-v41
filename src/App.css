@@ -199,3 +199,81 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 }
+.menu-principal {
+  display: flex;
+  gap: 10px;
+  padding: 14px 24px;
+  background: #ffffff;
+  border-bottom: 1px solid #dbe3ec;
+}
+
+.menu-principal button {
+  width: auto;
+  min-width: 130px;
+  min-height: 44px;
+  padding: 10px 18px;
+}
+
+.menu-activo {
+  background: #0f172a;
+  color: #ffffff;
+}
+
+.menu-inactivo {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.menu-inactivo:hover {
+  background: #cbd5e1;
+}
+
+.tarjeta input {
+  width: 100%;
+  min-height: 48px;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  font: inherit;
+}
+
+.tarjeta hr {
+  margin: 24px 0;
+  border: 0;
+  border-top: 1px solid #e2e8f0;
+}
+
+@media (max-width: 520px) {
+  .menu-principal {
+    padding: 10px 16px;
+  }
+
+  .menu-principal button {
+    flex: 1;
+    min-width: 0;
+  }
+}
+.boton-desactivar,
+.boton-activar {
+  width: auto;
+  min-height: 40px;
+  margin-top: 12px;
+  padding: 8px 16px;
+}
+
+.boton-desactivar {
+  background: #dc2626;
+}
+
+.boton-desactivar:hover {
+  background: #b91c1c;
+}
+
+.boton-activar {
+  background: #059669;
+}
+
+.boton-activar:hover {
+  background: #047857;
+}
