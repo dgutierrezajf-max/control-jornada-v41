@@ -277,3 +277,12 @@ button:disabled {
 .boton-activar:hover {
   background: #047857;
 }
+.estado-gps {
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid #93c5fd;
+  border-radius: 10px;
+  background: #eff6ff;
+  color: #1e40af;
+  font-weight: 700;
+}

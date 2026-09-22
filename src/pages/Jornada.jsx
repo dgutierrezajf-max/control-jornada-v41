@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../services/supabase'
 import '../App.css'
-function Jornada()  {   
+
+function Jornada() {
   const [empleados, setEmpleados] = useState([])
   const [tareas, setTareas] = useState([])
   const [establecimientos, setEstablecimientos] = useState([])
@@ -15,6 +16,7 @@ function Jornada()  {
   const [loteId, setLoteId] = useState('')
 
   const [mensaje, setMensaje] = useState('')
+  const [estadoGps, setEstadoGps] = useState('')
   const [procesando, setProcesando] = useState(false)
 
   useEffect(() => {
@@ -30,342 +32,187 @@ function Jornada()  {
 
     setLotesFiltrados(filtrados)
 
-    if (filtrados.length > 0) {
-      setLoteId(filtrados[0].id)
+    const loteActualExiste = filtrados.some(
+      lote => String(lote.id) === String(loteId)
+    )
+
+    if (!loteActualExiste) {
+      if (filtrados.length > 0) {
+        setLoteId(String(filtrados[0].id))
+      } else {
+        setLoteId('')
+      }
     }
-  }, [establecimientoId, lotes])
+  }, [establecimientoId, lotes, loteId])
 
   async function cargarDatos() {
-    const empleadosRes = await supabase
-      .from('empleados')
-      .select('*')
-      .eq('activo', true)
-      .order('nombre')
+    const [
+      empleadosResultado,
+      tareasResultado,
+      establecimientosResultado,
+      lotesResultado,
+      marcacionesResultado,
+    ] = await Promise.all([
+      supabase
+        .from('empleados')
+        .select('*')
+        .eq('activo', true)
+        .order('nombre'),
 
-    const tareasRes = await supabase
-      .from('tareas')
-      .select('*')
-      .eq('activo', true)
-      .order('nombre')
+      supabase
+        .from('tareas')
+        .select('*')
+        .eq('activo', true)
+        .order('nombre'),
 
-    const establecimientosRes = await supabase
-      .from('establecimientos')
-      .select('*')
-      .eq('activo', true)
-      .order('nombre')
+      supabase
+        .from('establecimientos')
+        .select('*')
+        .eq('activo', true)
+        .order('nombre'),
 
-    const lotesRes = await supabase
-      .from('lotes')
-      .select('*')
-      .eq('activo', true)
-      .order('nombre')
+      supabase
+        .from('lotes')
+        .select('*')
+        .eq('activo', true)
+        .order('nombre'),
 
-    const marcacionesRes = await supabase
-      .from('marcaciones')
-      .select('*')
-      .order('id', { ascending: false })
+      supabase
+        .from('marcaciones')
+        .select('*')
+        .order('id', { ascending: false }),
+    ])
 
-    setEmpleados(empleadosRes.data || [])
-    setTareas(tareasRes.data || [])
-    setEstablecimientos(
-      establecimientosRes.data || []
+    const resultados = [
+      empleadosResultado,
+      tareasResultado,
+      establecimientosResultado,
+      lotesResultado,
+      marcacionesResultado,
+    ]
+
+    const resultadoConError = resultados.find(
+      resultado => resultado.error
     )
-    setLotes(lotesRes.data || [])
-    setMarcaciones(marcacionesRes.data || [])
 
-    if (empleadosRes.data?.length) {
-      setEmpleadoId(empleadosRes.data[0].legajo)
+    if (resultadoConError) {
+      setMensaje(
+        'No se pudieron cargar los datos: ' +
+          resultadoConError.error.message
+      )
+      return
     }
 
-    if (tareasRes.data?.length) {
-      setTareaId(tareasRes.data[0].nombre)
+    const empleadosData = empleadosResultado.data || []
+    const tareasData = tareasResultado.data || []
+    const establecimientosData =
+      establecimientosResultado.data || []
+    const lotesData = lotesResultado.data || []
+    const marcacionesData =
+      marcacionesResultado.data || []
+
+    setEmpleados(empleadosData)
+    setTareas(tareasData)
+    setEstablecimientos(establecimientosData)
+    setLotes(lotesData)
+    setMarcaciones(marcacionesData)
+
+    if (!empleadoId && empleadosData.length > 0) {
+      setEmpleadoId(empleadosData[0].legajo)
     }
 
-    if (establecimientosRes.data?.length) {
+    if (!tareaId && tareasData.length > 0) {
+      setTareaId(tareasData[0].nombre)
+    }
+
+    if (
+      !establecimientoId &&
+      establecimientosData.length > 0
+    ) {
       setEstablecimientoId(
-        establecimientosRes.data[0].id
+        String(establecimientosData[0].id)
       )
     }
   }
 
   function fechaActual() {
-    return new Date().toISOString().split('T')[0]
+    const ahora = new Date()
+    const anio = ahora.getFullYear()
+    const mes = String(
+      ahora.getMonth() + 1
+    ).padStart(2, '0')
+    const dia = String(
+      ahora.getDate()
+    ).padStart(2, '0')
+
+    return `${anio}-${mes}-${dia}`
   }
 
   function horaActual() {
-    return new Date().toLocaleTimeString(
-      'es-AR',
-      {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
+    return new Date().toLocaleTimeString('es-AR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    })
+  }
+
+  function obtenerUbicacion() {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(
+          new Error(
+            'Este dispositivo no tiene disponible la ubicación.'
+          )
+        )
+        return
       }
-    )
-  }
 
-  function empleadoSeleccionado() {
-    return empleados.find(
-      e => e.legajo === empleadoId
-    )
-  }
+      let finalizado = false
 
-  const jornadaAbierta = marcaciones.find(
-    m =>
-      m.empleado_id === empleadoId &&
-      m.fecha === fechaActual() &&
-      !m.hora_salida
-  )
+      const temporizador = window.setTimeout(() => {
+        if (finalizado) {
+          return
+        }
 
-  async function registrarIngreso() {
-    if (jornadaAbierta) {
-      setMensaje(
-        'Este empleado ya tiene una jornada abierta.'
-      )
-      return
-    }
+        finalizado = true
 
-    setProcesando(true)
+        reject(
+          new Error(
+            'No se pudo obtener la ubicación en 12 segundos. Revise el GPS o pruebe desde el celular.'
+          )
+        )
+      }, 12000)
 
-    const empleado = empleadoSeleccionado()
+      navigator.geolocation.getCurrentPosition(
+        posicion => {
+          if (finalizado) {
+            return
+          }
 
-    const establecimiento =
-      establecimientos.find(
-        e =>
-          String(e.id) ===
-          String(establecimientoId)
-      )
+          finalizado = true
+          window.clearTimeout(temporizador)
 
-    const lote = lotes.find(
-      l => String(l.id) === String(loteId)
-    )
-
-    const { error } = await supabase
-      .from('marcaciones')
-      .insert([
-        {
-          empleado_id: empleado.legajo,
-          empleado_nombre: empleado.nombre,
-          fecha: fechaActual(),
-          tarea: tareaId,
-          establecimiento:
-            establecimiento?.nombre,
-          lote: lote?.nombre,
-          hora_ingreso: horaActual(),
+          resolve({
+            latitud: posicion.coords.latitude,
+            longitud: posicion.coords.longitude,
+            precision: posicion.coords.accuracy,
+          })
         },
-      ])
+        error => {
+          if (finalizado) {
+            return
+          }
 
-    if (error) {
-      setMensaje(error.message)
-      setProcesando(false)
-      return
-    }
+          finalizado = true
+          window.clearTimeout(temporizador)
 
-    setMensaje('Ingreso registrado')
+          if (error.code === 1) {
+            reject(
+              new Error(
+                'El permiso de ubicación fue rechazado.'
+              )
+            )
+            return
+          }
 
-    await cargarDatos()
-
-    setProcesando(false)
-  }
-
-  async function registrarSalida() {
-    if (!jornadaAbierta) {
-      setMensaje(
-        'No existe una jornada abierta.'
-      )
-      return
-    }
-
-    setProcesando(true)
-
-    const { error } = await supabase
-      .from('marcaciones')
-      .update({
-        hora_salida: horaActual(),
-      })
-      .eq('id', jornadaAbierta.id)
-
-    if (error) {
-      setMensaje(error.message)
-      setProcesando(false)
-      return
-    }
-
-    setMensaje('Salida registrada')
-
-    await cargarDatos()
-
-    setProcesando(false)
-  }
-
-  return (
-    <main className="app">
-      <header className="encabezado">
-        <p>CONTROL OPERATIVO MÓVIL</p>
-        <h1>Control de Jornada V4.2</h1>
-      </header>
-
-      <section className="contenido">
-        <div className="tarjeta">
-          <h2>Registrar jornada</h2>
-
-          <label>
-            Empleado
-
-            <select
-              value={empleadoId}
-              onChange={e =>
-                setEmpleadoId(
-                  e.target.value
-                )
-              }
-            >
-              {empleados.map(e => (
-                <option
-                  key={e.id}
-                  value={e.legajo}
-                >
-                  {e.nombre}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            Tarea
-
-            <select
-              value={tareaId}
-              onChange={e =>
-                setTareaId(
-                  e.target.value
-                )
-              }
-            >
-              {tareas.map(t => (
-                <option
-                  key={t.id}
-                  value={t.nombre}
-                >
-                  {t.nombre}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            Establecimiento
-
-            <select
-              value={establecimientoId}
-              onChange={e =>
-                setEstablecimientoId(
-                  e.target.value
-                )
-              }
-            >
-              {establecimientos.map(e => (
-                <option
-                  key={e.id}
-                  value={e.id}
-                >
-                  {e.nombre}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            Lote
-
-            <select
-              value={loteId}
-              onChange={e =>
-                setLoteId(
-                  e.target.value
-                )
-              }
-            >
-              {lotesFiltrados.map(l => (
-                <option
-                  key={l.id}
-                  value={l.id}
-                >
-                  {l.nombre}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <div className="botones-jornada">
-            <button
-              className="boton-ingreso"
-              onClick={registrarIngreso}
-              disabled={
-                procesando ||
-                Boolean(jornadaAbierta)
-              }
-            >
-              Registrar ingreso
-            </button>
-
-            <button
-              className="boton-salida"
-              onClick={registrarSalida}
-              disabled={
-                procesando ||
-                !jornadaAbierta
-              }
-            >
-              Registrar salida
-            </button>
-          </div>
-
-          {mensaje && (
-            <div className="mensaje">
-              {mensaje}
-            </div>
-          )}
-        </div>
-
-        <div className="tarjeta">
-          <h2>Marcaciones</h2>
-
-          {marcaciones.map(m => (
-            <div
-              key={m.id}
-              className="registro"
-            >
-              <strong>
-                {m.empleado_nombre}
-              </strong>
-
-              <div>
-                Fecha: {m.fecha}
-              </div>
-
-              <div>
-                Ingreso: {m.hora_ingreso}
-              </div>
-
-              <div>
-                Salida:{' '}
-                {m.hora_salida ||
-                  'Pendiente'}
-              </div>
-
-              <div>
-                {m.establecimiento}
-              </div>
-
-              <div>{m.lote}</div>
-
-              <div>{m.tarea}</div>
-            </div>
-          ))}
-        </div>
-      </section>
-    </main>
-  )
-}
-
-export default Jornada  
+      
